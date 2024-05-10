@@ -1,0 +1,180 @@
+// datasource db defines the database connection settings.
+// It is configured for PostgreSQL and uses an environment variable for the connection URL.
+// The 'extensions' feature enables the use of PostgreSQL-specific data types.
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+}
+
+// generator db configures Prisma Client settings.
+// It is set up to use Prisma Client Python with asyncio interface and specific features.
+generator db {
+  provider                    = "prisma-client-py"
+  interface                   = "asyncio"
+  recursive_type_depth        = 5
+  previewFeatures             = ["postgresqlExtensions"]
+  enable_experimental_decimal = true
+}
+
+model User {
+  id                 Int                 @id @default(autoincrement())
+  email              String              @unique
+  hashedPassword     String
+  role               Role
+  profile            UserProfile?
+  orders             Order[]
+  schedules          Schedule[]
+  performanceReviews PerformanceReview[]
+  payrolls           Payroll[]
+}
+
+model UserProfile {
+  id            Int     @id @default(autoincrement())
+  user          User    @relation(fields: [userId], references: [id])
+  userId        Int     @unique
+  firstName     String
+  lastName      String
+  contactNumber String?
+}
+
+model Item {
+  id              Int              @id @default(autoincrement())
+  name            String
+  category        Category
+  stockLevel      Int
+  minStockLevel   Int
+  reOrderNeed     Boolean          @default(false)
+  inventoryEvents InventoryEvent[]
+  lineItems       LineItem[]
+}
+
+model InventoryEvent {
+  id             Int                @id @default(autoincrement())
+  item           Item               @relation(fields: [itemId], references: [id])
+  itemId         Int
+  eventType      InventoryEventType
+  quantityChange Int
+  date           DateTime           @default(now())
+}
+
+model Sale {
+  id            Int           @id @default(autoincrement())
+  saleDate      DateTime      @default(now())
+  amount        Float
+  order         Order         @relation(fields: [orderId], references: [id])
+  orderId       Int           @unique
+  paymentStatus PaymentStatus @default(PENDING)
+}
+
+model Order {
+  id           Int         @id @default(autoincrement())
+  customer     Customer    @relation(fields: [customerId], references: [id])
+  customerId   Int
+  createdDate  DateTime    @default(now())
+  deliveryDate DateTime?
+  status       OrderStatus
+  lineItems    LineItem[]
+  sale         Sale?
+  user         User?       @relation(fields: [userId], references: [id])
+  userId       Int?
+}
+
+model LineItem {
+  id           Int   @id @default(autoincrement())
+  order        Order @relation(fields: [orderId], references: [id])
+  orderId      Int
+  item         Item  @relation(fields: [itemId], references: [id])
+  itemId       Int
+  quantity     Int
+  pricePerItem Float
+}
+
+model Schedule {
+  id          Int            @id @default(autoincrement())
+  scheduledOn DateTime
+  type        ScheduleType
+  user        User?          @relation(fields: [userId], references: [id])
+  userId      Int?
+  status      ScheduleStatus @default(PENDING)
+}
+
+model Customer {
+  id            Int     @id @default(autoincrement())
+  email         String  @unique
+  name          String
+  contactNumber String?
+  orders        Order[]
+}
+
+model PerformanceReview {
+  id         Int      @id @default(autoincrement())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     Int
+  reviewDate DateTime @default(now())
+  score      Int
+  feedback   String?
+}
+
+model Payroll {
+  id            Int      @id @default(autoincrement())
+  user          User     @relation(fields: [userId], references: [id])
+  userId        Int
+  paymentAmount Float
+  paymentDate   DateTime
+  taxDeductions Float
+  netAmount     Float
+}
+
+enum Role {
+  SYSTEM_ADMINISTRATOR
+  INVENTORY_MANAGER
+  SALES_MANAGER
+  FIELD_MANAGER
+  ORDER_MANAGER
+  HEALTH_SPECIALIST
+  HR_MANAGER
+  FINANCIAL_MANAGER
+}
+
+enum Category {
+  FERTILIZER
+  TREE
+  EQUIPMENT
+  SAPLING
+  HOSE
+  TRUCK
+  HARVESTER
+  LIGHT
+}
+
+enum InventoryEventType {
+  RECEIVED
+  SHIPPED
+  ADJUSTED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum OrderStatus {
+  PLACED
+  IN_PROCESS
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum ScheduleType {
+  PLANTING
+  HARVESTING
+  DELIVERY
+}
+
+enum ScheduleStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
